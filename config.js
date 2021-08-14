@@ -1,10 +1,12 @@
 const eventTypes = [
   'keydown',
-  'keyup',
+  // 'keyup',
   'mousemove',
   'wheel',
-  'mousedown',
-  'mouseup',
+  // 'mousedown',
+  // 'mouseup',
+  'touchstart',
+  'touchmove',
 ];
 
 // max number of events to update at once
