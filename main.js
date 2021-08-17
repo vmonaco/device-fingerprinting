@@ -1,84 +1,125 @@
-let logger = new EventLogger(eventTypes);
-let workers = {};
-let timeSource = null;
+let logger = new BufferedEventLogger(eventTypes, timeSources, bufferSize);
+let workers = {}; // indexed by eventType
+let currentTimeSource = null;
 
-function getTimeSource() {
+// update the current time source and force all plots to update
+function updateTimeSource() {
   for (const e of document.getElementsByName('timeSource')) {
-    if (e.checked)
-      return e.value;
+    if (e.checked) {
+      currentTimeSource = e.value;
+      break;
+    }
+  }
+
+  updatePlots(true);
+}
+
+// update every plot from current the worker estimates
+function updatePlots(forceUpdate) {
+  for (const eventType of logger.eventTypes) {
+    updatePlot(workers[eventType], forceUpdate);
   }
 }
 
-// starts or updates the worker with the current time source
-// TODO: there might be a race condition if the time source changes while an update is already in progress
-function postEvents() {
-  timeSource = getTimeSource();
-  for (eventType of eventTypes) {
-    workers[eventType].postMessage({
-      t: logger.emptyBuffer(timeSource, eventType),
-      forceUpdate: true,
-      timeSource: timeSource
-    });
+// update a plot from a worker that holds device fingerprint estimates
+function updatePlot(worker, forceUpdate) {
+  // data is null until some events are logged
+  if (worker.data == null) {
+    return
   }
+
+  const data = worker.data[currentTimeSource];
+
+  // nothing new since the last update
+  if (!forceUpdate && (worker.lastUpdate == data.N)) {
+    return;
+  }
+
+  // document.getElementById(`${worker.eventType}_counter`).innerHTML = data.N;
+  // document.getElementById(`${worker.eventType}_freq`).innerHTML = data.fundFreq;
+  // document.getElementById(`${worker.eventType}_skew`).innerHTML = data.skew;
+
+  let title = `${worker.eventType}`;
+
+  if (data.skew > 0) {
+    title += ` (${data.N} events, ${data.skew} fundamental Hz)`;
+  } else {
+    title += ` (${data.N} events, no fundamental Hz)`;
+  }
+
+  console.log(data.maxPxx);
+  Plotly.react(`${worker.eventType}_psd`, [{
+        x: data.freqs,
+        y: data.Pxx,
+        type: 'lines'
+      },
+      {
+        x: data.domFreqs,
+        y: data.domPxx,
+        mode: 'markers+text',
+        text: data.domFreqs.map(x => `${x} Hz`),
+        textposition: 'top',
+        type: 'scatter'
+      }
+    ], {
+      ...layout,
+      title: {
+        text: title,
+        font: {
+          family: 'Courier New, monospace',
+          size: 18,
+          color: '#7f7f7f'
+        }
+      },
+      yaxis: {
+        showgrid: false,
+        zeroline: false,
+        showticklabels: false,
+        range: [0, data.maxPxx*1.5],
+      },
+    });
+
+  worker.lastUpdate = data.N;
 }
 
 window.onload = function() {
-  for (eventType of eventTypes) {
+  for (const eventType of logger.eventTypes) {
     document.getElementById("container").innerHTML += `
       <div class="row align-items-center">
-      <div class="col-lg-1 col-md-1 col-sm-1 text-justify">
-      <p class="text-monospace text-center">${eventType}</p>
-      </div>
-
-      <div class="col-lg-1 col-md-1 col-sm-1 text-justify">
-      <p id="${eventType}_counter" class="text-monospace text-center">0</p>
-      </div>
-
-      <div class="col-lg-8 col-md-8 col-sm-8">
+      <div class="col-lg-12 col-md-12 col-sm-12">
       <div id="${eventType}_psd"></div>
-      </div>
-
-      <div class="col-lg-1 col-md-1 col-sm-1">
-      <div id="${eventType}_freq" class="text-center">-</div>
-      </div>
-
-      <div class="col-lg-1 col-md-1 col-sm-1">
-      <div id="${eventType}_skew" class="text-center">-</div>
       </div>
       </div>`;
 
-    // init the plot with all zeros as a placeholder
-    Plotly.newPlot(`${eventType}_psd`, [{
-      x: freqs.slice(),
-      y: zeros.slice(),
-      type: 'lines'
-    }], JSON.parse(JSON.stringify(layout)));
+    // TODO: init the plot with all zeros as a placeholder
+    Plotly.newPlot(`${eventType}_psd`, [], {
+      ...layout,
+      title: {
+        text: `${eventType} (0 events, no fundamental Hz)`,
+        font: {
+          family: 'Courier New, monospace',
+          size: 18,
+          color: '#7f7f7f'
+        }
+      },
+    });
 
     // start a worker for each event type
     var worker = new Worker('fingerprint.js');
+    worker.eventType = eventType;
+    workers[eventType] = worker;
 
-    // the worker continuously updates plots and estimates
+    // continuously update estimates with a timeout between callbacks
     worker.onmessage = function(event) {
       let that = this; // closure
 
       if (event.data != null) {
-        document.getElementById(`${that.eventType}_counter`).innerHTML = event.data.N;
-        document.getElementById(`${that.eventType}_freq`).innerHTML = event.data.fundFreq;
-        document.getElementById(`${that.eventType}_skew`).innerHTML = event.data.skew;
-        Plotly.react(`${that.eventType}_psd`, [{
-          x: event.data.freqs,
-          y: event.data.Pxx,
-          type: 'lines'
-        }], JSON.parse(JSON.stringify(layout)));
+        that.data = event.data;
       }
 
       // timeout between callbacks to empty the buffer and post new events
       setTimeout(function() {
-        that.postMessage({
-          t: logger.emptyBuffer(timeSource, that.eventType).slice(0, maxPostEvents),
-          forceUpdate: false,
-          timeSource: timeSource
-        });
+        that.postMessage(logger.emptyBuffer(that.eventType));
       }, updateTimeout);
     };
 
@@ -87,11 +128,12 @@ window.onload = function() {
       throw error;
     };
 
-    worker.eventType = eventType;
-    workers[eventType] = worker;
+    // starts the callback loop
+    worker.postMessage(logger.emptyBuffer(eventType));
   }
 
   // start logging events and updating the workers
   logger.startLogging();
-  postEvents();
+  updateTimeSource();
+  setInterval(function() { updatePlots(false); }, plottingInterval);
 }

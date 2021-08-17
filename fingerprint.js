@@ -69,6 +69,39 @@ function fundamentalFreq(freqs, Pxx) {
   return peak[0];
 }
 
+// estimate dominant frequencies from the power spectral density
+function dominantFreqs(freqs, Pxx) {
+  let zipped = freqs.map((x, i) => [x, Pxx[i]]);
+  zipped.sort((a, b) => a[1] < b[1] ? -1 : ((a[1] == b[1]) ? 0 : 1)).reverse()
+
+  // const Q25 = Math.floor(0.25 * zipped.length);
+  // const Q50 = Math.floor(0.50 * zipped.length);
+  // const Q75 = Math.floor(0.75 * zipped.length);
+  // const IQR = zipped[Q25][1] - zipped[Q75][1];
+  // const thresh = zipped[Q50][1] + 6 * IQR;
+
+  const Q95 = Math.floor(0.05 * zipped.length);
+  const thresh = 1.5*zipped[Q95][1]
+
+  let domFreqs = [];
+  let domPxx = [];
+  for (let i = 0; i < zipped.length; i++) {
+
+    // peaks must be above the threshold and within X% of each other
+    if (zipped[i][1] >= thresh) {
+      domFreqs.push(zipped[i][0]);
+      domPxx.push(zipped[i][1]);
+    } else {
+      break;
+    }
+  }
+
+  console.log(thresh, domFreqs);
+  // if there
+
+  return [domFreqs, domPxx];
+}
+
 // updates a PSD estimate over freqs given new point events
 // this avoids recomputing the entire PSD for each update
 function IncrementalPSD(freqs) {
@@ -78,21 +111,21 @@ function IncrementalPSD(freqs) {
   this.Pxx = math.zeros(freqs.length).toArray();
   this.FT = math.zeros(freqs.length).toArray();
   this.N = 0;
-  this.fundFreq = 0;
-  this.domFreq = 0;
+  // this.fundFreq = 0;
+  // this.domFreq = 0;
+  // this.domFreqs = [];
+  // this.domPxx = [];
 
   // incrementally update the PSD given new timestamps
   this.update = function(t) {
-    if ((t.length == 0) || (t.length == that.N)) {
+    if (t.length == 0) {
       return;
     }
 
-    // take the new events before updating the total length
-    const tNew = t.slice(that.N);
-    that.N = t.length;
+    that.N += t.length;
 
     // update the fourier transform, only consider new events
-    that.FT = math.add(that.FT, fourier(that.freqs, tNew));
+    that.FT = math.add(that.FT, fourier(that.freqs, t));
 
     // normalize to get the updated PSD
     that.Pxx = math.chain(that.FT)
@@ -100,13 +133,66 @@ function IncrementalPSD(freqs) {
       .square()
       .divide(that.N)
       .done();
-
-    // fundamental frequency is the lowest frequency with a peak
-    that.fundFreq = fundamentalFreq(that.freqs, that.Pxx);
-
-    // dominant frequency is the frequency with the most power
-    that.domFreq = that.freqs[that.Pxx.indexOf(Math.max.apply(null, that.Pxx))];
   };
+
+  // detect dominant frequencies using a simple peak detection:
+  // * at least 8IQR above the median and greater
+  // * greater than everything within length 9 window centered on the peak
+  this.dominantFreqs = function() {
+    // need at least 2 events to estimate something
+    if (that.N < 2) {
+      return [0, [], []];
+    }
+
+    let zipped = that.freqs.map((x, i) => [x, that.Pxx[i]]);
+    zipped.sort((a, b) => a[1] < b[1] ? -1 : ((a[1] == b[1]) ? 0 : 1))
+
+    const Q25 = Math.floor(0.25 * zipped.length);
+    const Q50 = Math.floor(0.50 * zipped.length);
+    const Q75 = Math.floor(0.75 * zipped.length);
+    const IQR = zipped[Q75][1] - zipped[Q25][1];
+    const thresh = zipped[Q50][1] + 8 * IQR;
+
+    let domFreqs = [];
+    let domPxx = [];
+    let step = false;
+    for (let i = 0; i < that.freqs.length; i++) {
+      if ((that.Pxx[i] >= thresh) &&
+          (that.Pxx[i] > (that.Pxx[i-1] || 0)) &&
+          (that.Pxx[i] > (that.Pxx[i-2] || 0)) &&
+          (that.Pxx[i] > (that.Pxx[i-3] || 0)) &&
+          (that.Pxx[i] > (that.Pxx[i-4] || 0)) &&
+          (that.Pxx[i] > (that.Pxx[i+1] || 0)) &&
+          (that.Pxx[i] > (that.Pxx[i+2] || 0)) &&
+          (that.Pxx[i] > (that.Pxx[i+3] || 0)) &&
+          (that.Pxx[i] > (that.Pxx[i+4] || 0))
+        ) {
+        domFreqs.push(that.freqs[i]);
+        domPxx.push(that.Pxx[i]);
+      }
+    }
+
+    // fundamental frequency is the lowest dominant frequency
+    if (domFreqs.length > 0) {
+      fundFreq = domFreqs[0];
+    } else {
+      fundFreq = 0;
+    }
+
+    return [fundFreq, domFreqs, domPxx];
+  }
+
+  this.peak = function() {
+    let domFreq = 0;
+    let domPxx = 0;
+    for (let i = 0; i < that.freqs.length; i++) {
+      if (that.Pxx[i] > domPxx) {
+        domFreq = that.freqs[i]
+        domPxx = that.Pxx[i];
+      }
+    }
+    return [domFreq, domPxx];
+  }
 }
 
 function DeviceFingerprint(freqs) {
@@ -115,11 +201,8 @@ function DeviceFingerprint(freqs) {
   this.psd = new IncrementalPSD(freqs);
   this.skewEstimates = {};
   this.fundFreqWeights = {};
-  this.t = [];
-  this.tRounded = [];
-  that.N = 0;
   this.fundFreq = 0;
-  this.skew = 0;
+  // this.skew = 0;
 
   // update the psd and skew estimates for all dominant frequencies
   this.update = function(t) {
@@ -127,20 +210,20 @@ function DeviceFingerprint(freqs) {
       return;
     }
 
-    // store all timestamps seen so far
-    that.t.push(...t);
-    that.N = that.t.length;
+    that.N += t.length;
 
     // rounded to the nearest 0.1ms, used to compute psd and domFreq
-    that.tRounded.push(...math.round(t, 1));
-    that.psd.update(that.tRounded);
+    const tRounded = math.round(t, 1);
+    that.psd.update(tRounded);
+
+    const [fundFreq, domFreqs, domPxx] = that.psd.dominantFreqs();
 
     // peak detection is noisy, avoid recomputing the psd around every peak
     // dominant frequencies are weighted by how often they appear
-    if (!(that.psd.fundFreq in that.fundFreqWeights)) {
-      that.fundFreqWeights[that.psd.fundFreq] = 0;
+    if (!(fundFreq in that.fundFreqWeights)) {
+      that.fundFreqWeights[fundFreq] = 0;
     }
-    that.fundFreqWeights[that.psd.fundFreq] += t.length
+    that.fundFreqWeights[fundFreq] += t.length
 
     // set the dominant freq to the peak with the max weight
     that.fundFreq = parseInt(Object.keys(that.fundFreqWeights)
@@ -155,38 +238,42 @@ function DeviceFingerprint(freqs) {
 
       // update psd around the dominant frequency
       // note the skew estimate uses domFreq and not fundFreq
-      that.skewEstimates[that.fundFreq].update(that.t);
-      that.skew = math.round(that.skewEstimates[that.fundFreq].domFreq, 3);
+      that.skewEstimates[that.fundFreq].update(t);
+      that.skew = math.round(that.skewEstimates[that.fundFreq].peak()[0], 3);
     } else {
       that.skew = 0;
     }
-  };
 
-  this.fingerprint = function() {
     return {
+      N: that.psd.N,
       freqs: that.psd.freqs,
       Pxx: that.psd.Pxx,
       fundFreq: that.fundFreq,
       skew: that.skew,
-      N: that.N,
-    };
-  }
+      domFreqs: domFreqs,
+      domPxx: domPxx,
+      maxPxx: that.psd.peak()[1],
+    }
+  };
 };
 
-let fpMap = {};
+// map time sources to device fingerprints
+let fp = Object.fromEntries(timeSources.map(y => [y, new DeviceFingerprint(math.range(...defaultHzRange).toArray())]));
 
 this.onmessage = function(event) {
-  if (!(event.data.timeSource in fpMap)) {
-    fpMap[event.data.timeSource] = new DeviceFingerprint(freqs);
-  }
-
   // no updates, send back an empty message
-  if ((event.data.t.length == 0) && (!event.data.forceUpdate)) {
+  if (event.data.N == 0) {
     this.postMessage(null);
     return;
   }
 
-  fpMap[event.data.timeSource].update(event.data.t);
-  const data = fpMap[event.data.timeSource].fingerprint();
+  // update estimates and post the new fingerprint
+  let data = {}
+  for (const timeSource of timeSources) {
+    data[timeSource] = fp[timeSource].update(event.data[timeSource]);
+  }
+  // N is the same for every time source
+  data.N = data[timeSources[0]].N;
+
   this.postMessage(data);
 };

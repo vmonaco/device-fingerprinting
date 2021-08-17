@@ -64,9 +64,9 @@
 		<div class="row">
 			<div class="col-lg-12 col-md-12 col-sm-12 text-justify">
 				<p>
-					The plots below each show the <a href="https://en.wikipedia.org/wiki/Spectral_density">power spectral density</a> (PSD) updated in real time for common peripheral DOM events: keydown, keyup, mousemove, wheel, mousedown, and mouseup.
-					The fundamental frequency is the lowest integer-valued frequency that carries a significant amount of energy compared to the rest of the spectrum.
-					Clock skew is measured as a fine-grained estimate of the fundamental frequency.
+					The plots below each show the <a href="https://en.wikipedia.org/wiki/Spectral_density">power spectral density</a> (PSD) updated in real time for common peripheral DOM events: keydown, mousemove, wheel, and touchmove.
+					Domanint frequencies are peaks in the PSD (labeled in orange), and the fundamental frequency is the lowest frequency that carries a significant amount of energy compared to the rest of the spectrum.
+					Clock skew is measured as a fine-grained estimate of the fundamental frequency shown in the title of each plot (if the fundamental frequency exists).
 					For example, the fundamental may be 125Hz (USB device), but actual running frequency could be slightly faster at 125.001Hz.
 					There are <a href="https://hal.inria.fr/hal-03215569/file/eurosp21_rokicki.pdf">several ways</a> to measure time in a web browser, and both the PSD and fundamental frequency estimates may also differ based on the time source.
 				</p>
@@ -79,15 +79,15 @@
 
 				<p>Change the time source:
 				<div class="form-check">
-					<input class="form-check-input" type="radio" name="timeSource" onclick="postEvents();" value="native" id="nativeTimeSource" checked>
+					<input class="form-check-input" type="radio" name="timeSource" onclick="updateTimeSource();" value="timeStamp" id="eventTimeSource" checked>
 					<label class="form-check-label" for="native">event.timeStamp</label>
 				</div>
 				<div class="form-check">
-					<input class="form-check-input" type="radio" name="timeSource" onclick="postEvents();" value="date" id="dateTimeSource">
+					<input class="form-check-input" type="radio" name="timeSource" onclick="updateTimeSource();" value="date" id="dateTimeSource">
 					<label class="form-check-label" for="dateTimeSource">Date.now()</label>
 				</div>
 				<div class="form-check">
-					<input class="form-check-input" type="radio" name="timeSource" onclick="postEvents();" value="performance" id="performanceTimeSource">
+					<input class="form-check-input" type="radio" name="timeSource" onclick="updateTimeSource();" value="performance" id="performanceTimeSource">
 					<label class="form-check-label" for="performanceTimeSource">performance.now()</label>
 				</div>
 				</p>
@@ -97,30 +97,6 @@
 		</div>
 
 		<hr />
-
-		<div class="row">
-			<div class="col-lg-12 col-md-12 col-sm-12 text-justify">
-
-			</div>
-		</div>
-
-		<div class="row">
-			<div class="col-lg-1 col-md-1 col-sm-1 text-justify">
-				<h4 class="text-center">Event</h4>
-			</div>
-			<div class="col-lg-1 col-md-1 col-sm-1 text-justify">
-				<h4 class="text-center">Count</h4>
-			</div>
-			<div class="col-lg-8 col-md-8 col-sm-8 text-justify">
-				<h3 class="text-center">Power spectral density</h3>
-			</div>
-			<div class="col-lg-1 col-md-1 col-sm-1">
-				<h3 class="text-center">Hz</h3>
-			</div>
-			<div class="col-lg-1 col-md-1 col-sm-1">
-				<h3 class="text-center">Skew</h3>
-			</div>
-		</div>
 
 	</div>
 

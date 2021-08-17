@@ -24,41 +24,37 @@ function makeTextFile(textFile, text) {
   return textFile;
 };
 
-function EventLogger(events) {
+function BufferedEventLogger(eventTypes, timeSources, bufferSize) {
   let that = this;
 
-  this.events = events;
+  this.eventTypes = eventTypes;
+  this.timeSources = timeSources;
+  this.bufferSize = bufferSize;
 
-  this.buffer = {
-    'date': Object.fromEntries(this.events.map(x => [x, []])),
-    'performance': Object.fromEntries(this.events.map(x => [x, []])),
-    'native': Object.fromEntries(this.events.map(x => [x, []])),
-  };
+  // buffer is indexed by [eventType][timeSource]
+  this.buffer = Object.fromEntries(this.eventTypes.map(x => [x,
+    Object.fromEntries(this.timeSources.map(y => [y, []]))
+  ]));
 
   this.addEvent = function(e, eventType) {
-    that.buffer['date'][eventType].push(Date.now());
-    that.buffer['performance'][eventType].push(performance.now());
-    that.buffer['native'][eventType].push(e.timeStamp);
+    if (that.buffer[eventType][that.timeSources[0]].length >= that.bufferSize) {
+      return;
+    }
+
+    that.buffer[eventType]['date'].push(Date.now());
+    that.buffer[eventType]['performance'].push(performance.now());
+    that.buffer[eventType]['timeStamp'].push(e.timeStamp);
   };
 
-  this.gatherTimestamps = function(timeSource, eventTypes) {
-    return that.buffer[timeSource].reduce(function(filtered, x) {
-      if (eventTypes.includes(x.type)) {
-        filtered.push(x.time);
-      }
-      return filtered;
-    }, []);
-  };
-
-  this.emptyBuffer = function(timeSource, eventType) {
-    // console.log(timeSource, eventType);
-    const events = that.buffer[timeSource][eventType];
-    that.buffer[timeSource][eventType] = [];
+  this.emptyBuffer = function(eventType) {
+    let events = that.buffer[eventType];
+    that.buffer[eventType] = Object.fromEntries(this.timeSources.map(y => [y, []]));
+    events.N = events[that.timeSources[0]].length;
     return events;
   };
 
   this.startLogging = function() {
-    for (const eventType of this.events) {
+    for (const eventType of this.eventTypes) {
       hook(
         window,
         eventType,

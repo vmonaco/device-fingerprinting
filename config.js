@@ -5,26 +5,39 @@ const eventTypes = [
   'wheel',
   // 'mousedown',
   // 'mouseup',
-  'touchstart',
+  // 'touchstart',
   'touchmove',
 ];
 
+const timeSources = ['timeStamp','date','performance'];
+
 // max number of events to update at once
 // this is mainly to rate limit mousemove events
-const maxPostEvents = 50;
+const bufferSize = 50;
 
 // time between worker callbacks
-const updateTimeout = 200;
+const updateTimeout = 500;
 
-// Hz from 20 to 1020 inclusive
-const freqs = [...Array(1001).keys()].map(i => i + 20);
-const zeros = Array(freqs.length).fill(0);
+// time between plot updates
+const plottingInterval = 500;
+
+const defaultHzRange = [20, 501, 1]; // min, max, step
 
 const layout = {
+  showlegend: false,
   autosize: true,
   height: 200,
   xaxis: {
     zeroline: false,
+    title: {
+      text: 'Hz',
+      font: {
+        family: 'Courier New, monospace',
+        size: 16,
+        color: '#7f7f7f'
+      },
+    },
+    range: [defaultHzRange[0]-2, defaultHzRange[1]+2],
   },
   yaxis: {
     showgrid: false,
@@ -32,9 +45,9 @@ const layout = {
     showticklabels: false,
   },
   margin: {
-    t: 20,
+    t: 50,
     l: 20,
     r: 20,
-    b: 20
+    b: 50
   },
 };
