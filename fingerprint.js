@@ -27,81 +27,6 @@ function fourier(freqs, t) {
   return Pxx;
 }
 
-// estimate fundamental frequency from the power spectral density
-function fundamentalFreq(freqs, Pxx) {
-  let zipped = freqs.map((x, i) => [x, Pxx[i]]);
-  zipped.sort((a, b) => a[1] < b[1] ? -1 : ((a[1] == b[1]) ? 0 : 1)).reverse()
-
-  const Q25 = Math.floor(0.25 * zipped.length);
-  const Q50 = Math.floor(0.50 * zipped.length);
-  const Q75 = Math.floor(0.75 * zipped.length);
-  const IQR = zipped[Q25][1] - zipped[Q75][1];
-  const thresh = zipped[Q50][1] + 6 * IQR;
-
-  let domFreqs = [];
-  for (let i = 0; i < zipped.length; i++) {
-    if (zipped[i][1] >= thresh) {
-      domFreqs.push(zipped[i]);
-    } else {
-      break;
-    }
-  }
-
-  // no dom freq
-  if (domFreqs.length == 0) {
-    return 0;
-  }
-
-  // only one dom freq
-  if (domFreqs.length == 1) {
-    return domFreqs[0][0];
-  }
-
-  // if the lowest freq is at least 25% height of the peak, then use that
-  const peak = domFreqs[0];
-  const lowest = domFreqs.reduce((prev, curr) => prev[0] < curr[0] ? prev : curr);
-
-  if (lowest[1] >= 0.5 * peak[1]) {
-    return lowest[0];
-  }
-
-  // otherwise use the peak
-  return peak[0];
-}
-
-// estimate dominant frequencies from the power spectral density
-function dominantFreqs(freqs, Pxx) {
-  let zipped = freqs.map((x, i) => [x, Pxx[i]]);
-  zipped.sort((a, b) => a[1] < b[1] ? -1 : ((a[1] == b[1]) ? 0 : 1)).reverse()
-
-  // const Q25 = Math.floor(0.25 * zipped.length);
-  // const Q50 = Math.floor(0.50 * zipped.length);
-  // const Q75 = Math.floor(0.75 * zipped.length);
-  // const IQR = zipped[Q25][1] - zipped[Q75][1];
-  // const thresh = zipped[Q50][1] + 6 * IQR;
-
-  const Q95 = Math.floor(0.05 * zipped.length);
-  const thresh = 1.5*zipped[Q95][1]
-
-  let domFreqs = [];
-  let domPxx = [];
-  for (let i = 0; i < zipped.length; i++) {
-
-    // peaks must be above the threshold and within X% of each other
-    if (zipped[i][1] >= thresh) {
-      domFreqs.push(zipped[i][0]);
-      domPxx.push(zipped[i][1]);
-    } else {
-      break;
-    }
-  }
-
-  console.log(thresh, domFreqs);
-  // if there
-
-  return [domFreqs, domPxx];
-}
-
 // updates a PSD estimate over freqs given new point events
 // this avoids recomputing the entire PSD for each update
 function IncrementalPSD(freqs) {
@@ -111,10 +36,6 @@ function IncrementalPSD(freqs) {
   this.Pxx = math.zeros(freqs.length).toArray();
   this.FT = math.zeros(freqs.length).toArray();
   this.N = 0;
-  // this.fundFreq = 0;
-  // this.domFreq = 0;
-  // this.domFreqs = [];
-  // this.domPxx = [];
 
   // incrementally update the PSD given new timestamps
   this.update = function(t) {

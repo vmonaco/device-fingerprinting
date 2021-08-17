@@ -35,19 +35,14 @@ function updatePlot(worker, forceUpdate) {
     return;
   }
 
-  // document.getElementById(`${worker.eventType}_counter`).innerHTML = data.N;
-  // document.getElementById(`${worker.eventType}_freq`).innerHTML = data.fundFreq;
-  // document.getElementById(`${worker.eventType}_skew`).innerHTML = data.skew;
-
   let title = `${worker.eventType}`;
 
   if (data.skew > 0) {
-    title += ` (${data.N} events, ${data.skew} fundamental Hz)`;
+    title += ` (${data.N} events, ${data.skew} Hz)`;
   } else {
-    title += ` (${data.N} events, no fundamental Hz)`;
+    title += ` (${data.N} events, no fund. Hz)`;
   }
 
-  console.log(data.maxPxx);
   Plotly.react(`${worker.eventType}_psd`, [{
         x: data.freqs,
         y: data.Pxx,
@@ -64,12 +59,8 @@ function updatePlot(worker, forceUpdate) {
     ], {
       ...layout,
       title: {
+        ...layout.title,
         text: title,
-        font: {
-          family: 'Courier New, monospace',
-          size: 18,
-          color: '#7f7f7f'
-        }
       },
       yaxis: {
         showgrid: false,
@@ -95,12 +86,8 @@ window.onload = function() {
     Plotly.newPlot(`${eventType}_psd`, [], {
       ...layout,
       title: {
-        text: `${eventType} (0 events, no fundamental Hz)`,
-        font: {
-          family: 'Courier New, monospace',
-          size: 18,
-          color: '#7f7f7f'
-        }
+        ...layout.title,
+        text: `${eventType} (0 events, no fund. Hz)`,
       },
     });
 
