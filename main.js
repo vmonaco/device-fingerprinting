@@ -38,9 +38,9 @@ function updatePlot(worker, forceUpdate) {
   let title = `${worker.eventType}`;
 
   if (data.skew > 0) {
-    title += ` (${data.N} events, ${data.skew} Hz)`;
+    title += ` (N=${data.N}, ${data.skew} Hz)`;
   } else {
-    title += ` (${data.N} events, no fund. Hz)`;
+    title += ` (N=${data.N}, no fund. Hz)`;
   }
 
   Plotly.react(`${worker.eventType}_psd`, [{
@@ -87,7 +87,7 @@ window.onload = function() {
       ...layout,
       title: {
         ...layout.title,
-        text: `${eventType} (0 events, no fund. Hz)`,
+        text: `${eventType} (N=0, no fund. Hz)`,
       },
     });
 

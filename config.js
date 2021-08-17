@@ -54,7 +54,7 @@ const layout = {
     yanchor: 'top',
     font: {
       family: 'Courier New, monospace',
-      size: 18,
+      size: 16,
       color: '#7f7f7f'
     }
   }
