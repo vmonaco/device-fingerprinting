@@ -90,6 +90,10 @@
 					<input class="form-check-input" type="radio" name="timeSource" onclick="updateTimeSource();" value="performance" id="performanceTimeSource">
 					<label class="form-check-label" for="performanceTimeSource">performance.now()</label>
 				</div>
+				<div class="form-check">
+					<input class="form-check-input" type="radio" name="timeSource" onclick="updateTimeSource();" value="worker" id="workerTimeSource">
+					<label class="form-check-label" for="workerTimeSource">Web Worker</label>
+				</div>
 				</p>
 
 				<textarea class="form-control" id="scratchpad" rows="3"></textarea>

@@ -11,7 +11,7 @@ const eventTypes = [
 ];
 
 // TODO: better way to handle time sources in teh logger
-const timeSources = ['timeStamp', 'date', 'performance'];
+const timeSources = ['timeStamp', 'date', 'performance', 'worker'];
 
 // max number of events to update at once
 // this is mainly to rate limit mousemove events

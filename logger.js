@@ -36,14 +36,23 @@ function BufferedEventLogger(eventTypes, timeSources, bufferSize) {
     Object.fromEntries(this.timeSources.map(y => [y, []]))
   ]));
 
+  this.ts = new Worker('timer.js');
+  this.ts.postMessage(0);
+  this.timestamp = 0;
+  this.ts.addEventListener("message" , function(event) {
+    that.timestamp = (event.data/10);
+  });
+
   this.addEvent = function(e, eventType) {
     if (that.buffer[eventType][that.timeSources[0]].length >= that.bufferSize) {
       return;
     }
-
+    // fetch the worker timestamp
+    that.ts.postMessage(0);
     that.buffer[eventType]['date'].push(Date.now());
     that.buffer[eventType]['performance'].push(performance.now());
     that.buffer[eventType]['timeStamp'].push(e.timeStamp);
+    that.buffer[eventType]['worker'].push(that.timestamp);
   };
 
   this.emptyBuffer = function(eventType) {
