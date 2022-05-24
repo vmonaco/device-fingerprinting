@@ -11,6 +11,13 @@ function updateTimeSource() {
     }
   }
 
+  // web worker time source is CPU intensive, turn it on only if selected
+  if (currentTimeSource == 'worker') {
+    logger.enableWorker();
+  } else {
+    logger.disableWorker();
+  }
+
   updatePlots(true);
 }
 
