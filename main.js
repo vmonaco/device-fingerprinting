@@ -31,7 +31,7 @@ function updatePlots(forceUpdate) {
 // update a plot from a worker that holds device fingerprint estimates
 function updatePlot(worker, forceUpdate) {
   // data is null until some events are logged
-  if (worker.data == null) {
+  if (worker.data == null || worker.data[currentTimeSource] == null) {
     return
   }
 

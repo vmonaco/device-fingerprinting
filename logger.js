@@ -12,18 +12,6 @@ function unhook(element, evnt, funct) {
     return element.removeEventListener(evnt, funct, false);
 }
 
-function makeTextFile(textFile, text) {
-  let data = new Blob([text], {
-    type: 'text/plain'
-  });
-  if (textFile !== null) {
-    window.URL.revokeObjectURL(textFile);
-  }
-
-  textFile = window.URL.createObjectURL(data);
-  return textFile;
-};
-
 function BufferedEventLogger(eventTypes, timeSources, bufferSize) {
   let that = this;
 
@@ -36,7 +24,9 @@ function BufferedEventLogger(eventTypes, timeSources, bufferSize) {
     Object.fromEntries(this.timeSources.map(y => [y, []]))
   ]));
 
+  // used for the webworker time source
   this.ts = null;
+  that.timestamp = 0;
 
   this.addEvent = function(e, eventType) {
     if (that.buffer[eventType][that.timeSources[0]].length >= that.bufferSize) {
@@ -47,7 +37,7 @@ function BufferedEventLogger(eventTypes, timeSources, bufferSize) {
     that.buffer[eventType]['performance'].push(performance.now());
     that.buffer[eventType]['timeStamp'].push(e.timeStamp);
 
-    if (that.ts !== null) {
+    if (that.ts != null) {
       that.ts.postMessage(0);
       that.buffer[eventType]['worker'].push(that.timestamp);
     }
@@ -55,13 +45,13 @@ function BufferedEventLogger(eventTypes, timeSources, bufferSize) {
 
   this.emptyBuffer = function(eventType) {
     let events = that.buffer[eventType];
-    that.buffer[eventType] = Object.fromEntries(this.timeSources.map(y => [y, []]));
+    that.buffer[eventType] = Object.fromEntries(that.timeSources.map(y => [y, []]));
     events.N = events[that.timeSources[0]].length;
     return events;
   };
 
   this.startLogging = function() {
-    for (const eventType of this.eventTypes) {
+    for (const eventType of that.eventTypes) {
       hook(
         window,
         eventType,
@@ -75,14 +65,13 @@ function BufferedEventLogger(eventTypes, timeSources, bufferSize) {
   this.enableWorker = function() {
     that.ts = new Worker('timer.js');
     that.ts.postMessage(0);
-    that.timestamp = 0;
     that.ts.addEventListener("message" , function(event) {
       that.timestamp = (event.data/10);
     });
   };
 
   this.disableWorker = function() {
-    if (that.ts === null) {
+    if (that.ts == null) {
       return;
     }
     that.ts.terminate();

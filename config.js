@@ -10,7 +10,7 @@ const eventTypes = [
   'touchmove',
 ];
 
-// TODO: better way to handle time sources in teh logger
+// TODO: better way to handle time sources in the logger
 const timeSources = ['timeStamp', 'date', 'performance', 'worker'];
 
 // max number of events to update at once
